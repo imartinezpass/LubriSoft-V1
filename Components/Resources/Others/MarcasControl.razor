@@ -1,0 +1,123 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+<h1 class="mb-0" style="text-align:center">Marcas</h1>
+<h4 class="mb-0" style="text-align:center">Alta y Baja</h4>
+<hr />
+<div class="row">
+    <div class="col-xl-9">
+        <MarcasForm OnValidatedForm="HandleMarcaAdded" MarcaModel="MarcaModel" FormId="MarcasAdd" />
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="MarcasAdd" class="w-100 btn btn-lg btn-dark">Cargar</button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-9">
+        <div class="form-floating mb-3">
+            <InputSelect @bind-Value="MarcaSelected" class="form-control">
+                <option value="">Seleccione una marca...</option>
+                @foreach (var m in Marcas)
+                {
+                    <option value="@m.Nombre">@m.Nombre</option>
+                }
+            </InputSelect>
+            <label>Lista de Marcas</label>
+        </div>
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="MarcaDelete" class="w-100 btn btn-lg btn-danger" @onclick="MarcaDelete">Eliminar</button>
+        </div>
+    </div>
+</div>
+
+<Modal @ref="ModalMarca" title="Eliminar Marca" CloseOnEscape="false">
+    <BodyTemplate>
+        ¿Está seguro de que desea eliminar la marca @MarcaSelected?
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-danger" @onclick="ConfirmDeleteMarca">Eliminar</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public List<Marca> Marcas { get; set; } = new();
+
+    [Parameter]
+    public EventCallback OnMarcaChanged { get; set; }
+
+    public MarcaViewModel MarcaModel { get; set; } = new();
+
+    public String? MarcaSelected;
+
+    private Modal ModalMarca = default!;
+
+    //Dispara Modal de confirmacion
+    public async void MarcaDelete()
+    {
+        await ModalMarca.ShowAsync();
+    }
+
+    //Create Marca
+    private async void HandleMarcaAdded(Entities.Marca newMarca)
+    {
+        var result = await DbServices.CreateMarca(newMarca);
+
+        if (result == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: ya existe una marca cargada con ese nombre"));
+        }
+        else
+        {
+            Marcas.Add(newMarca); //Actualiza la UI sin refrescar
+            Marcas = Marcas.OrderBy(x => x.Nombre).ToList(); //Ordena la UI sin refrescar
+            MarcaModel = new();
+            ToastService.Notify(new(ToastType.Success, $"Se agregó una marca nueva con nombre {newMarca.Nombre}"));
+            await OnMarcaChanged.InvokeAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    //Delete Marca
+    public async void ConfirmDeleteMarca()
+    {
+        try
+        {
+            var result = await DbServices.DeleteMarca(MarcaSelected!);
+
+            if (result == true)
+            {
+                var marca = Marcas.FirstOrDefault(x => x.Nombre == MarcaSelected);
+                if (marca != null)
+                {
+                    Marcas.Remove(marca);
+                }
+
+                ToastService.Notify(new(ToastType.Danger, $"Se eliminó la marca {MarcaSelected}"));
+                MarcaSelected = string.Empty;
+                await OnMarcaChanged.InvokeAsync();
+            }
+            else
+            {
+                ToastService.Notify(new(ToastType.Danger, $"Error: la marca no existe o posee referencias"));
+            }
+        }
+        catch
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Se produjo un error al intentar eliminar la marca"));
+        }
+        await ModalMarca.HideAsync();
+        StateHasChanged();
+    }
+
+}

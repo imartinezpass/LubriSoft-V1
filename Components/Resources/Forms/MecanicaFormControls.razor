@@ -1,0 +1,50 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+
+<div class="col-md-12">
+    @****** FECHA ******@
+    <div class="form-floating mb-3">
+        <InputDate @bind-Value="MecanicaModel.Fecha" class="form-control" />
+        <label>Fecha</label>
+    </div>
+    @****** PATENTE ******@
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="PatenteVerificada" class="form-control" placeholder="" maxlength="15" style="text-transform:uppercase" disabled />
+        <label>Patente</label>
+    </div>
+    @****** KILOMETRAJE ACTUAL ******@
+    <div class="form-floating mb-3">
+        <InputNumber @bind-Value="MecanicaModel.KilometrajeActual" class="form-control" min="0" max="999999" />
+        <label>Kilometraje Actual</label>
+    </div>
+    @****** TIPO DE TRABAJO ******@
+    <div class="form-floating mb-3">
+        <InputSelect @bind-Value="MecanicaModel.TipoTrabajo" class="form-control">
+            <option value="">Seleccione una opcion...</option>
+            <option value="OTRO">OTRO</option>
+            <option value="FRENOS">FRENOS</option>
+            <option value="BUJIAS">BUJIAS</option>
+            <option value="EMBRAGUE">EMBRAGUE</option>
+            <option value="LIMPIEZA">LIMPIEZA</option>
+            <option value="DISTRIBUCION">DISTRIBUCION</option>
+            <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+            <option value="TREN DELANTERO">TREN DELANTERO</option>
+        </InputSelect>
+        <label>Tipo de Trabajo</label>
+    </div>
+    @****** DETALLE ******@
+    <div class="form-floating mb-3">
+        <InputTextArea @bind-Value="MecanicaModel.Detalle" class="form-control" placeholder="" maxlength="250" style="text-transform:uppercase" />
+        <label>Detalle</label>
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public string? PatenteVerificada { get; set; } = string.Empty;
+
+    [Parameter]
+    public MecanicaViewModel MecanicaModel { get; set; } = new();
+
+}

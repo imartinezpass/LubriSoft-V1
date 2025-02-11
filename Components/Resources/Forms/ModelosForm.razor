@@ -1,0 +1,56 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using System.Text.RegularExpressions
+
+<EditForm Model="@ModeloModel" OnValidSubmit="RegistrarModelo" id="@FormId">
+    <DataAnnotationsValidator />
+    <div class="row">
+        <div class="col-xl-5">
+            @****** FABRICANTE ******@
+            <div class="form-floating mb-3">
+                <InputSelect @bind-Value="ModeloModel.Fabricante" class="form-control">
+                    <option value="">Seleccione un fabricante...</option>
+                    @foreach (var f in Fabricantes)
+                    {
+                        <option value="@f.Nombre">@f.Nombre</option>
+                    }
+                </InputSelect>
+                <label>Fabricante</label>
+            </div>
+        </div>
+        <div class="col-xl-7">
+            @****** NOMBRE ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ModeloModel.Nombre" class="form-control" placeholder="" maxlength="50" style="text-transform:uppercase" />
+                <label>Nombre</label>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public string? FormId { get; set; }
+
+    [Parameter]
+    public EventCallback<Modelo> OnValidatedForm { get; set; }
+
+    [Parameter]
+    public List<Fabricante> Fabricantes { get; set; } = new();
+
+    [Parameter]
+    public ModeloViewModel ModeloModel { get; set; } = new();
+
+    public async Task RegistrarModelo(EditContext editContext)
+    {
+        Modelo m = new Modelo
+        {
+            FabricanteId = ModeloModel.Fabricante,
+            Nombre = ModeloModel.Nombre.ToUpper().Trim(),
+        };
+
+        await OnValidatedForm.InvokeAsync(m);
+    }
+
+}

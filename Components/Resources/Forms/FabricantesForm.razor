@@ -1,0 +1,39 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using System.Text.RegularExpressions
+
+<EditForm Model="@FabricanteModel" OnValidSubmit="RegistrarFabricante" id="@FormId">
+    <DataAnnotationsValidator />
+    <div class="row">
+        <div class="col-md-12">
+            @****** NOMBRE ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="FabricanteModel.Nombre" class="form-control" placeholder="" maxlength="50" style="text-transform:uppercase" />
+                <label>Nombre</label>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public string? FormId { get; set; }
+
+    [Parameter]
+    public EventCallback<Fabricante> OnValidatedForm { get; set; }
+
+    [Parameter]
+    public FabricanteViewModel FabricanteModel { get; set; } = new();
+
+    public async Task RegistrarFabricante(EditContext editContext)
+    {
+        Fabricante f = new Fabricante
+        {
+            Nombre = FabricanteModel.Nombre.ToUpper().Trim(),
+        };
+
+        await OnValidatedForm.InvokeAsync(f);
+    }
+
+}

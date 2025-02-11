@@ -1,0 +1,140 @@
+﻿@page "/mecanica"
+
+@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+@rendermode InteractiveServer
+
+<PageTitle>Mecanica</PageTitle>
+
+<div class="row mb-3">
+    <div class="col-lg-12 mx-auto pt-2 pb-3 border">
+        <h1 class="mb-0" style="text-align:center">Mecanica</h1>
+        <h4 class="mb-0" style="text-align:center">Alta y Gestion</h4>
+        <hr />
+        <VerificadorPatente VerificarPatente="VerificarPatente" OnVehiculoAdded="HandleVehiculoAdded" Fabricantes="Fabricantes" Modelos="Modelos" Clientes="Clientes" PatenteModel="PatenteModel" Searching="Searching" />
+        <div class="row">
+            <div class="col-12">
+                <VehiculosTable Vehiculos="Vehiculos" Fabricantes="Fabricantes" Modelos="Modelos" Clientes="Clientes" />
+            </div>
+        </div>
+        <hr />
+        <fieldset disabled="@(!IsPatenteVerificada)">
+            <MecanicaForm OnValidatedForm="HandleMecanicaAdded" MecanicaModel="MecanicaModel" FormId="MecanicaAdd" PatenteForm="@PatenteVerificada" />
+            <button form="MecanicaAdd" class="w-100 btn btn-lg btn-dark">Cargar Mecanica</button>
+        </fieldset>
+        <hr />   
+        <MecanicaTable MecanicaServices="ServiciosMecanica" />       
+    </div>
+</div>
+
+<Toasts class="p-3" AutoHide="true" Delay="5000" Placement="ToastsPlacement.TopRight" />
+
+@code {
+
+    public bool IsPatenteVerificada = false;
+    public bool Searching = false;
+    public string PatenteVerificada = string.Empty;
+
+    public List<Fabricante> Fabricantes { get; set; } = new();
+    public List<Modelo> Modelos { get; set; } = new();
+    public List<Mecanica> ServiciosMecanica { get; set; } = new();
+    public List<Cliente> Clientes { get; set; } = new();
+    public List<Vehiculo> Vehiculos { get; set; } = new();
+
+    private Vehiculo? Vehiculo;
+    public MecanicaViewModel MecanicaModel { get; set; } = new();
+    public PatenteViewModel PatenteModel { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Fabricantes = await DbServices.ReadAllFabricantes();
+            Modelos = await DbServices.ReadAllModelos();
+            Clientes = await DbServices.ReadAllClientes();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
+
+    //Search Vehiculo after Create Vehiculo
+    private void HandleVehiculoAdded(string patente)
+    {
+        PatenteModel.Patente = patente;
+        VerificarPatente();
+    }
+
+    //Search Vehiculo
+    private async void VerificarPatente()
+    {
+        MecanicaModel = new();
+        Searching = true;
+        StateHasChanged();
+
+        await Task.Delay(500);
+
+        var NormalizedSearchField = PatenteModel.Patente.Trim();
+
+        if (NormalizedSearchField.Length < 6 || NormalizedSearchField.Contains(" "))
+        {
+            Vehiculo = null;
+            Vehiculos.Clear();
+            ServiciosMecanica.Clear();
+        }
+        else
+        {
+            Vehiculo = await DbServices.ReadVehiculoByPatente(PatenteModel.Patente);
+            Vehiculos.Clear();
+            ServiciosMecanica = await DbServices.SearchMecanica(2, PatenteModel.Patente);
+        }
+
+        IsPatenteVerificada = (Vehiculo != null);
+
+        if (IsPatenteVerificada)
+        {
+            PatenteVerificada = PatenteModel.Patente;
+            Vehiculos.Add(Vehiculo!);
+        }
+        else
+        {
+            PatenteVerificada = string.Empty;
+        }
+
+        Searching = false;
+        StateHasChanged();
+    }
+
+    //Create Mecanica
+    private async void HandleMecanicaAdded(Entities.Mecanica newMecanica)
+    {
+        var mecanicaId = await DbServices.CreateMecanica(newMecanica);
+
+        if (mecanicaId == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: no se encontró un vehiculo con la patente indicada"));
+        }
+        else
+        {
+            ServiciosMecanica.Add(newMecanica); //Actualiza la UI sin refrescar
+            ServiciosMecanica = ServiciosMecanica.OrderByDescending(x => x.Fecha).ToList(); //Ordena la UI sin refrescar
+
+            MecanicaModel = new();
+            Vehiculo = null;
+            PatenteVerificada = string.Empty;
+            IsPatenteVerificada = false;
+            PatenteModel.Patente = string.Empty;
+
+            ToastService.Notify(new(ToastType.Success, $"Se agregó un trabajo de mecanica nuevo con id #{mecanicaId}"));
+        }
+
+        StateHasChanged();
+    }
+
+}

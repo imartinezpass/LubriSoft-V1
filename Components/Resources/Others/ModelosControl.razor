@@ -1,0 +1,121 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+<h1 class="mb-0" style="text-align:center">Modelos</h1>
+<h4 class="mb-0" style="text-align:center">Alta y Baja</h4>
+<hr />
+<div class="row">
+    <div class="col-xl-9">
+        <ModelosForm OnValidatedForm="HandleModeloAdded" ModeloModel="ModeloModel" FormId="ModeloAdd" Fabricantes="Fabricantes" />
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="ModeloAdd" class="w-100 btn btn-lg btn-dark">Cargar</button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-9">
+        <div class="form-floating mb-3">
+            <InputSelect @bind-Value="ModeloSelected" class="form-control">
+                <option value="">Seleccione un modelo...</option>
+                @foreach (var m in Modelos)
+                {
+                    <option value="@m.Nombre">@m.Nombre (@m.FabricanteId)</option>
+                }
+            </InputSelect>
+            <label>Lista de Modelos</label>
+        </div>
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="ModeloDelete" class="w-100 btn btn-lg btn-danger" @onclick="ModeloDelete">Eliminar</button>
+        </div>
+    </div>
+</div>
+
+<Modal @ref="ModalModelo" title="Eliminar Modelo" CloseOnEscape="false">
+    <BodyTemplate>
+        ¿Está seguro de que desea eliminar el modelo @ModeloSelected?
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-danger" @onclick="ConfirmDeleteModelo">Eliminar</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public List<Fabricante> Fabricantes { get; set; } = new();
+
+    [Parameter]
+    public List<Modelo> Modelos { get; set; } = new();
+
+    public String? ModeloSelected;
+
+    public ModeloViewModel ModeloModel { get; set; } = new();
+
+    private Modal ModalModelo = default!;
+
+    //Dispara Modal de confirmacion
+    public async void ModeloDelete()
+    {
+        await ModalModelo.ShowAsync();
+    }
+
+    //Create Modelo
+    private async void HandleModeloAdded(Entities.Modelo newModelo)
+    {
+        var result = await DbServices.CreateModelo(newModelo);
+
+        if (result == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: ya existe un modelo cargado con ese nombre"));
+        }
+        else
+        {
+            Modelos.Add(newModelo); //Actualiza la UI sin refrescar
+            Modelos = Modelos.OrderBy(x => x.Nombre).ToList(); //Ordena la UI sin refrescar
+            ModeloModel = new();
+            ToastService.Notify(new(ToastType.Success, $"Se agregó un modelo nuevo con nombre {newModelo.Nombre}"));
+        }
+
+        StateHasChanged();
+    }
+
+    //Delete Modelo
+    public async void ConfirmDeleteModelo()
+    {
+        try
+        {
+            var result = await DbServices.DeleteModelo(ModeloSelected!);
+
+            if (result == true)
+            {
+                var modelo = Modelos.FirstOrDefault(x => x.Nombre == ModeloSelected);
+                if (modelo != null)
+                {
+                    Modelos.Remove(modelo);
+                }
+
+                ToastService.Notify(new(ToastType.Danger, $"Se eliminó el modelo {ModeloSelected}"));
+                ModeloSelected = string.Empty;
+            }
+            else
+            {
+                ToastService.Notify(new(ToastType.Danger, $"Error: el modelo no existe o posee referencias"));
+            }
+        }
+        catch
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Se produjo un error al intentar eliminar el modelo"));
+        }
+        await ModalModelo.HideAsync();
+        StateHasChanged();
+    }
+
+}

@@ -1,0 +1,123 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+<h1 class="mb-0" style="text-align:center">Aceites</h1>
+<h4 class="mb-0" style="text-align:center">Alta y Baja</h4>
+<hr />
+<div class="row">
+    <div class="col-xl-9">
+        <AceitesForm OnValidatedForm="HandleAceiteAdded" AceiteModel="AceiteModel" Marcas="Marcas" FormId="AceitesAdd" />
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="AceitesAdd" class="w-100 btn btn-lg btn-dark">Cargar</button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-9">
+        <div class="form-floating mb-3">
+            <InputSelect @bind-Value="AceiteSelected" class="form-control">
+                <option value="">Seleccione un aceite...</option>
+                @foreach (var a in Aceites)
+                {
+                    <option value="@a.NombreCompleto">@a.NombreCompleto</option>
+                }
+            </InputSelect>
+            <label>Lista de Aceites</label>
+        </div>
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="AceiteDelete" class="w-100 btn btn-lg btn-danger" @onclick="AceiteDelete">Eliminar</button>
+        </div>
+    </div>
+</div>
+
+<Modal @ref="ModalAceite" title="Eliminar Aceite" CloseOnEscape="false">
+    <BodyTemplate>
+        ¿Está seguro de que desea eliminar el aceite @AceiteSelected?
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-danger" @onclick="ConfirmDeleteAceite">Eliminar</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public List<Marca> Marcas { get; set; } = new();
+
+    [Parameter]
+    public List<Aceite> Aceites { get; set; } = new();
+
+    public AceiteViewModel AceiteModel { get; set; } = new();
+
+    public String? AceiteSelected;
+
+    private Modal ModalAceite = default!;
+
+    //Dispara Modal de confirmacion
+    public async void AceiteDelete()
+    {
+        await ModalAceite.ShowAsync();
+    }
+
+    //Create Aceite
+    private async void HandleAceiteAdded(Entities.Aceite newAceite)
+    {
+        var result = await DbServices.CreateAceite(newAceite);
+
+        if (result == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: ya existe un aceite cargado con ese nombre"));
+        }
+        else
+        {
+            Aceites.Add(newAceite); // Actualiza la UI sin refrescar
+            Aceites = Aceites.OrderBy(x => x.MarcaId).ThenBy(x => x.Nombre).ThenBy(x => x.Norma).ToList(); //Ordena la UI sin refrescar
+
+            AceiteModel = new();
+
+            ToastService.Notify(new(ToastType.Success, $"Se agregó un aceite nuevo con nombre {newAceite.NombreCompleto}"));
+        }
+
+        StateHasChanged();
+    }
+
+    //Delete Aceite
+    public async void ConfirmDeleteAceite()
+    {
+        try
+        {
+            var result = await DbServices.DeleteAceite(AceiteSelected!);
+
+            if (result == true)
+            {
+                var aceite = Aceites.FirstOrDefault(x => x.NombreCompleto == AceiteSelected);
+                if (aceite != null)
+                {
+                    Aceites.Remove(aceite);
+                }
+
+                ToastService.Notify(new(ToastType.Danger, $"Se eliminó el aceite {AceiteSelected}"));
+                AceiteSelected = string.Empty;
+            }
+            else
+            {
+                ToastService.Notify(new(ToastType.Danger, $"Error: el aceite no existe o posee referencias"));
+            }
+        }
+        catch
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Se produjo un error al intentar eliminar el aceite"));
+        }
+        await ModalAceite.HideAsync();
+        StateHasChanged();
+    }
+
+}

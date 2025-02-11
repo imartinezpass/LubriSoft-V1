@@ -1,0 +1,104 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+<div class="row">
+    <div class="col-xl-6">
+        <div class="form-floating mb-3">
+            <InputText @bind-Value="PatenteModel.Patente" class="form-control" placeholder="" maxlength="15" style="text-transform:uppercase" />
+            <label>Patente del Vehiculo</label>
+        </div>
+    </div>
+    <div class="col-xl-6 mb-3">
+        <div class="d-flex gap-4 h-100 align-items-stretch">
+            <button type="button" form="ServiceAdd" class="btn btn-lg btn-success w-100" @onclick="VerificarPatente">
+                @if (Searching)
+                {
+                    <div class="d-flex justify-content-center">
+                        <Spinner Type="SpinnerType.Border" />
+                    </div>
+                }
+                else
+                {
+                    <span>Verificar Patente</span>
+                }
+            </button>
+            <button type="button" form="ServiceAdd" class="btn btn-lg btn-dark w-100" @onclick="NuevoVehiculo">Nuevo Vehiculo</button>
+        </div>
+    </div>
+</div>
+
+<Modal @ref="ModalVehiculo" title="Nuevo Vehiculo" CloseOnEscape="false" Size="ModalSize.ExtraLarge" OnHiding="ResetModel">
+    <BodyTemplate>
+        <div class="row">
+            <VehiculosForm OnValidatedForm="HandleVehiculoAdded" VehiculoModel="VehiculoModel" Fabricantes="Fabricantes" Modelos="Modelos" Clientes="Clientes" FormId="VehiculoAdd" />
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button form="VehiculoAdd" class="w-100 btn btn-lg btn-dark">Cargar Vehiculo</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public EventCallback VerificarPatente { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnVehiculoAdded { get; set; }
+
+    [Parameter]
+    public List<Fabricante> Fabricantes { get; set; } = new();
+
+    [Parameter]
+    public List<Modelo> Modelos { get; set; } = new();
+
+    [Parameter]
+    public List<Cliente> Clientes { get; set; } = new();
+
+    [Parameter]
+    public PatenteViewModel PatenteModel { get; set; } = new();
+
+    [Parameter]
+    public bool Searching { get; set; } = false;
+
+    public VehiculoViewModel VehiculoModel { get; set; } = new();
+
+    private Modal ModalVehiculo = default!;
+
+    //Reinicia el form
+    public async void ResetModel()
+    {
+        VehiculoModel = new();
+        await ModalVehiculo.HideAsync();
+    }
+
+    //Dispara Modal de creacion
+    private async void NuevoVehiculo()
+    {
+        await ModalVehiculo.ShowAsync();
+    }
+
+    //Create Vehiculo
+    private async void HandleVehiculoAdded(Entities.Vehiculo newVehiculo)
+    {
+        var result = await DbServices.CreateVehiculo(newVehiculo);
+
+        if (result == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: ya existe un vehiculo cargado con esa patente"));
+        }
+        else
+        {
+            ResetModel();
+            ToastService.Notify(new(ToastType.Success, $"Se agregó un vehiculo nuevo con patente {newVehiculo.Patente}"));
+            await OnVehiculoAdded.InvokeAsync(newVehiculo.Patente);
+        }
+
+        StateHasChanged();
+    }
+
+}

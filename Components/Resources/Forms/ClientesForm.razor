@@ -1,0 +1,63 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using System.Text.RegularExpressions
+
+<EditForm Model="@ClienteModel" OnValidSubmit="RegistrarCliente" id="@FormId">
+    <DataAnnotationsValidator />
+    <div class="row">
+        <div class="col-xl-6">
+            @****** NOMBRE ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ClienteModel.Nombre" class="form-control" placeholder="" maxlength="50" style="text-transform:uppercase" />
+                <label>Nombre</label>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            @****** TELEFONO ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ClienteModel.Telefono" class="form-control" placeholder="" maxlength="10" style="text-transform:uppercase" disabled="@KeyDisabled" />
+                <label>Telefono</label>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public string? FormId { get; set; }
+
+    [Parameter]
+    public bool KeyDisabled { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<Cliente> OnValidatedForm { get; set; }
+
+    [Parameter]
+    public Cliente? ClienteExistente { get; set; }
+
+    [Parameter]
+    public ClienteViewModel ClienteModel { get; set; } = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ClienteExistente != null)
+        {
+            ClienteModel.Nombre = ClienteExistente.Nombre;
+            ClienteModel.Telefono = ClienteExistente.Telefono!;  
+        }
+        await base.OnParametersSetAsync();
+    }
+
+    public async Task RegistrarCliente(EditContext editContext)
+    {
+        Cliente c = new Cliente
+        {
+            Telefono = ClienteModel.Telefono.ToUpper().Trim(),
+            Nombre = ClienteModel.Nombre.ToUpper().Trim(),  
+        };
+
+        await OnValidatedForm.InvokeAsync(c);
+    }
+
+}

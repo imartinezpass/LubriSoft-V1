@@ -1,0 +1,222 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+
+<div class="col-xl-6">
+    @****** FECHA ******@
+    <div class="form-floating mb-3">
+        <InputDate @bind-Value="ServiceModel.Fecha" class="form-control" />
+        <label>Fecha</label>
+    </div>
+    @****** PATENTE ******@
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="PatenteVerificada" class="form-control" placeholder="" maxlength="15" style="text-transform:uppercase" disabled />
+        <label>Patente</label>
+    </div>
+    @****** KILOMETRAJE ACTUAL ******@
+    <div class="row">
+        <div class="col-8">
+            <div class="form-floating mb-3">
+                <InputNumber @bind-Value="ServiceModel.KilometrajeActual" class="form-control" min="0" max="999999" disabled="@KilometrajeDisabled" />
+                <label>Kilometraje Actual</label>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="form-floating mb-3">
+                <select class="form-control" value="@(ServiceModel.KilometrajeActual + ServiceModel.Intervalo == 0 ? "0" : "1")" @onchange="HandleSelectChangeKilometraje">
+                    <option value="1">SI</option>
+                    <option value="0">NO</option>
+                </select>
+                <label>Funciona</label>
+            </div>
+        </div>
+    </div>
+    @****** KILOMETRAJE PROXIMO ******@
+    <div class="row">
+        <div class="col-8">
+            <div class="form-floating mb-3">
+                <input type="number" value="@(ServiceModel.KilometrajeActual + ServiceModel.Intervalo)" class="form-control" disabled />
+                <label>Kilometraje Proximo</label>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="form-floating mb-3">
+                <InputNumber @bind-Value="ServiceModel.Intervalo" class="form-control" min="5000" max="20000" step="1000" disabled="@KilometrajeDisabled" />
+                <label>Intervalo</label>
+            </div>
+        </div>
+    </div>
+    @****** ACEITE ******@
+    <div class="form-floating mb-3">
+        <InputSelect @bind-Value="ServiceModel.Aceite" class="form-control">
+            <option value="">Seleccione un aceite...</option>
+            @foreach (var a in Aceites)
+            {
+                <option value="@a.NombreCompleto">@a.NombreCompleto</option>
+            }
+        </InputSelect>
+        <label>Aceite</label>
+    </div>
+</div>
+<div class="col-xl-6">
+    @****** FILTRO DE AIRE ******@
+    <div class="row">
+        <div class="col-8">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ServiceModel.FiltroAire" class="form-control" placeholder="" maxlength="20" style="text-transform:uppercase" disabled="@FiltroDisabled[0]" />
+                <label>Filtro de Aire</label>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="form-floating mb-3">
+                <select class="form-control" value="@(ServiceModel.FiltroAire == "NO" ? "0" : "1")" @onchange="@(e => HandleSelectChangeFiltro(0))">
+                    <option value="0">NO</option>
+                    <option value="1">SI</option>
+                </select>
+                <label>Cambia</label>
+            </div>
+        </div>
+    </div>
+    @****** FILTRO DE ACEITE ******@
+    <div class="row">
+        <div class="col-8">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ServiceModel.FiltroAceite" class="form-control" placeholder="" maxlength="20" style="text-transform:uppercase" disabled="@FiltroDisabled[1]" />
+                <label>Filtro de Aceite</label>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="form-floating mb-3">
+                <select class="form-control" value="@(ServiceModel.FiltroAceite == "NO" ? "0" : "1")" @onchange="@(e => HandleSelectChangeFiltro(1))">
+                    <option value="0">NO</option>
+                    <option value="1">SI</option>
+                </select>
+                <label>Cambia</label>
+            </div>
+        </div>
+    </div>
+    @****** FILTRO DE COMBUSTIBLE ******@
+    <div class="row">
+        <div class="col-8">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ServiceModel.FiltroCombustible" class="form-control" placeholder="" maxlength="20" style="text-transform:uppercase" disabled="@FiltroDisabled[2]" />
+                <label>Filtro de Combustible</label>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="form-floating mb-3">
+                <select class="form-control" value="@(ServiceModel.FiltroCombustible == "NO" ? "0" : "1")" @onchange="@(e => HandleSelectChangeFiltro(2))">
+                    <option value="0">NO</option>
+                    <option value="1">SI</option>
+                </select>
+                <label>Cambia</label>
+            </div>
+        </div>
+    </div>
+    @****** FILTRO DE HABITACULO ******@
+    <div class="row">
+        <div class="col-8">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ServiceModel.FiltroHabitaculo" class="form-control" placeholder="" maxlength="20" style="text-transform:uppercase" disabled="@FiltroDisabled[3]" />
+                <label>Filtro de Habitaculo</label>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="form-floating mb-3">
+                <select class="form-control" value="@(ServiceModel.FiltroHabitaculo == "NO" ? "0" : "1")" @onchange="@(e => HandleSelectChangeFiltro(3))">
+                    <option value="0">NO</option>
+                    <option value="1">SI</option>
+                </select>
+                <label>Cambia</label>
+            </div>
+        </div>
+    </div>
+    @****** OBSERVACIONES ******@
+    <div class="row">
+        <div class="col-8">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="ServiceModel.Observaciones" class="form-control" placeholder="" maxlength="100" style="text-transform:uppercase" disabled="@FiltroDisabled[4]" />
+                <label>Observaciones</label>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="form-floating mb-3">
+                <select class="form-control" value="@(ServiceModel.Observaciones == "NO" ? "0" : "1")" @onchange="@(e => HandleSelectChangeFiltro(4))">
+                    <option value="0">NO</option>
+                    <option value="1">SI</option>
+                </select>
+                <label>Tiene</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public string? PatenteVerificada { get; set; } = string.Empty;
+
+    [Parameter]
+    public List<Aceite> Aceites { get; set; } = new();
+
+    [Parameter]
+    public ServiceViewModel ServiceModel { get; set; } = new();
+
+    private List<bool> FiltroDisabled = new List<bool> { true, true, true, true, true };
+    private List<Action<string>> FiltroActions = new List<Action<string>>();
+
+    private bool KilometrajeDisabled = false;
+
+    protected override void OnInitialized()
+    {
+        FiltroActions = new List<Action<string>>
+        {
+            value => ServiceModel.FiltroAire = value,
+            value => ServiceModel.FiltroAceite = value,
+            value => ServiceModel.FiltroCombustible = value,
+            value => ServiceModel.FiltroHabitaculo = value,
+            value => ServiceModel.Observaciones = value
+        };
+    }
+
+    protected override void OnParametersSet()
+    {
+        FiltroDisabled[0] = ServiceModel.FiltroAire == "NO";
+        FiltroDisabled[1] = ServiceModel.FiltroAceite == "NO";
+        FiltroDisabled[2] = ServiceModel.FiltroCombustible == "NO";
+        FiltroDisabled[3] = ServiceModel.FiltroHabitaculo == "NO";
+        FiltroDisabled[4] = ServiceModel.Observaciones == "NO";
+
+        KilometrajeDisabled = ServiceModel.KilometrajeActual == 0 && ServiceModel.Intervalo == 0;
+    }
+
+    public void HandleSelectChangeKilometraje()
+    {
+        KilometrajeDisabled = !KilometrajeDisabled;
+
+        if (KilometrajeDisabled)
+        {
+            ServiceModel.KilometrajeActual = 0;
+            ServiceModel.Intervalo = 0;
+        }
+        else
+        {
+            ServiceModel.KilometrajeActual = 0;
+            ServiceModel.Intervalo = 5000;
+        }
+    }
+
+    public void HandleSelectChangeFiltro(int filtro)
+    {
+        FiltroDisabled[filtro] = !FiltroDisabled[filtro];
+
+        if (FiltroDisabled[filtro])
+        {
+            FiltroActions[filtro]("NO");
+        }
+        else
+        {
+            FiltroActions[filtro](string.Empty);
+        }
+    }
+
+}

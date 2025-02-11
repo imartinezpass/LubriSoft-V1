@@ -1,0 +1,173 @@
+﻿@using LubriSoft.Data
+@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+@if (Vehiculos.Count == 0)
+{
+    <div class="alert alert-warning mb-0" role="alert">
+        No hay vehiculos para mostrar...
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped caption-top mb-0">
+            <caption>Tabla de Vehiculos</caption>
+            <thead>
+                <tr style="text-align:center">
+                    <th>Patente</th>
+                    <th>Fabricante</th>
+                    <th>Modelo</th>
+                    <th>Version</th>
+                    <th>Capacidad Motor</th>
+                    <th>Capacidad Caja</th>
+                    <th>Propietario</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var vehiculo in Vehiculos)
+                {
+                    <tr class="table-secondary" style="text-align:center">
+                        <td>@vehiculo.Patente</td>
+                        <td>@vehiculo.FabricanteId</td>
+                        <td>@vehiculo.ModeloId</td>
+                        <td>@(string.IsNullOrWhiteSpace(vehiculo.Version) ? "?" : vehiculo.Version)</td>
+                        <td>@(string.IsNullOrWhiteSpace(vehiculo.CapacidadMotor) ? "?" : vehiculo.CapacidadMotor)</td>
+                        <td>@(string.IsNullOrWhiteSpace(vehiculo.CapacidadCaja) ? "?" : vehiculo.CapacidadCaja)</td>
+                        <td>@(vehiculo.Cliente != null ? $"{vehiculo.Cliente.Nombre} ({vehiculo.Cliente.Telefono})" : "?")</td>
+                        <td>
+                            <div class="container" style="white-space:nowrap">
+                                <button class="btn btn-dark" @onclick="@(() => VehiculoEdit(vehiculo))"><IconEdit /></button>
+                                <button class="btn btn-danger" @onclick="@(() => VehiculoDelete(vehiculo))"><IconDelete /></button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Modal @ref="ModalEdit" title="Editar Vehiculo" CloseOnEscape="false" Size="ModalSize.ExtraLarge" OnHiding="ResetModel">
+    <BodyTemplate>
+        <div class="row">
+            <VehiculosForm OnValidatedForm="ConfirmEdit" Fabricantes="Fabricantes" Modelos="Modelos" FormId="VehiculoEdit" Clientes="Clientes" VehiculoExistente="VehiculoContext" KeyDisabled="true" />
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-dark" form="VehiculoEdit">Guardar</button>
+    </FooterTemplate>
+</Modal>
+
+<Modal @ref="ModalDelete" title="Eliminar Vehiculo" CloseOnEscape="false">
+    <BodyTemplate>
+        ¿Está seguro de que desea eliminar el vehiculo @VehiculoContext!.Patente?
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-danger" @onclick="ConfirmDelete">Eliminar</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public List<Vehiculo> Vehiculos { get; set; } = new();
+
+    [Parameter]
+    public List<Fabricante> Fabricantes{ get; set; } = new();
+
+    [Parameter]
+    public List<Modelo> Modelos { get; set; } = new();
+
+    [Parameter]
+    public List<Cliente> Clientes { get; set; } = new();
+
+    private Vehiculo? VehiculoContext;
+
+    private Modal ModalEdit = default!;
+    private Modal ModalDelete = default!;
+
+    //Reinicia el form
+    public async void ResetModel()
+    {
+        await ModalEdit.HideAsync();
+    }
+
+    //Dispara Modal de edicion
+    public async void VehiculoEdit(Vehiculo vehiculo)
+    {
+        VehiculoContext = vehiculo;
+        await ModalEdit.ShowAsync();
+    }
+
+    //Dispara Modal de confirmacion
+    public async void VehiculoDelete(Vehiculo vehiculo)
+    {
+        VehiculoContext = vehiculo;
+        await ModalDelete.ShowAsync();
+    }
+
+    //Update Vehiculo
+    private async Task ConfirmEdit(Entities.Vehiculo editedVehiculo)
+    {
+        Vehiculo v = new Vehiculo
+        {
+            Patente = editedVehiculo.Patente!.ToUpper().Trim(),
+            FabricanteId = editedVehiculo.FabricanteId,
+            ModeloId = editedVehiculo.ModeloId,
+            Version = editedVehiculo.Version!.ToUpper().Trim(),
+            CapacidadMotor = string.IsNullOrWhiteSpace(editedVehiculo.CapacidadMotor) ? null : editedVehiculo.CapacidadMotor!.ToUpper().Trim(),
+            CapacidadCaja = string.IsNullOrWhiteSpace(editedVehiculo.CapacidadCaja) ? null : editedVehiculo.CapacidadCaja!.ToUpper().Trim(),
+            ClienteId = editedVehiculo.ClienteId
+        };
+
+        var result = await DbServices.UpdateVehiculo(v);
+
+        if (result == true)
+        {
+            ToastService.Notify(new(ToastType.Success, $"Se modificó el vehiculo con patente {editedVehiculo.Patente}"));
+        }
+        else
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: el vehiculo no existe"));
+        }
+
+        await ModalEdit.HideAsync();
+    }
+
+    //Delete Vehiculo
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            var result = await DbServices.DeleteVehiculo(VehiculoContext!.Patente!);
+
+            if (result == true)
+            { 
+                var vehiculo = Vehiculos.FirstOrDefault(x => x.Patente == VehiculoContext.Patente);
+                if (vehiculo != null)
+                {
+                    Vehiculos.Remove(vehiculo);
+                }
+
+                ToastService.Notify(new(ToastType.Danger, $"Se eliminó el vehiculo con patente {VehiculoContext.Patente}"));
+            }
+            else
+            {
+                ToastService.Notify(new(ToastType.Danger, $"Error: el vehiculo no existe o posee referencias"));
+            }  
+        }
+        catch
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Se produjo un error al intentar eliminar el vehiculo"));
+        }      
+        await ModalDelete.HideAsync();
+        StateHasChanged();
+    }
+
+}

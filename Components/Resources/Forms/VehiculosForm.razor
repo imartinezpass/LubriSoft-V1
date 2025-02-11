@@ -1,0 +1,174 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using System.Text.RegularExpressions
+
+@inject ToastService ToastService
+
+<EditForm Model="@VehiculoModel" OnValidSubmit="RegistrarVehiculo" id="@FormId">
+    <DataAnnotationsValidator />
+    <h3>Datos del Vehiculo</h3>
+    <div class="row">
+        <div class="col-xl-6">
+            @****** PATENTE ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="VehiculoModel.Patente" class="form-control" placeholder="" maxlength="15" style="text-transform:uppercase" disabled="@KeyDisabled" />
+                <label>Patente</label>
+            </div>
+            @****** FABRICANTE ******@
+            <div class="form-floating mb-3">
+                <select class="form-control" value="@VehiculoModel.Fabricante" @onchange="ActualizarModelos">
+                    <option value="">Seleccione un fabricante...</option>
+                    @foreach (var f in Fabricantes)
+                    {
+                        <option value="@f.Nombre">@f.Nombre</option>
+                    }
+                </select>
+                <label>Fabricante</label>
+            </div>
+            @****** MODELO ******@
+            <div class="form-floating mb-3">
+                <InputSelect @bind-Value="VehiculoModel.Modelo" class="form-control">
+                    <option value="">Seleccione un modelo...</option>
+                    @foreach (var m in ModelosFiltrados)
+                    {
+                        <option value="@m.Nombre">@m.Nombre</option>
+                    }
+                </InputSelect>
+                <label>Modelo</label>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            @****** VERSION ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="VehiculoModel.Version" class="form-control" placeholder="" maxlength="50" style="text-transform:uppercase" />
+                <label>Version</label>
+            </div>
+            @****** CAPACIDAD MOTOR ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="VehiculoModel.CapacidadMotor" class="form-control" placeholder="" maxlength="10" style="text-transform:uppercase" />
+                <label>Capacidad Motor (opcional)</label>
+            </div>
+            @****** CAPACIDAD CAJA ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="VehiculoModel.CapacidadCaja" class="form-control" placeholder="" maxlength="10" style="text-transform:uppercase" />
+                <label>Capacidad Caja (opcional)</label>
+            </div>
+        </div>
+    </div>
+    <hr class="mt-0"/>
+    <h3>Datos del Propietario (opcional)</h3>
+    <div class="row">
+        <div class="col-xl-12">
+            @****** CLIENTE******@
+            <SearchCliente @ref="SearchClienteFormRef" Clientes="Clientes" IdClienteExistente="@ClienteExistenteId" ClienteIdChanged="OnClienteIdChanged" />
+        </div>
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public string? FormId { get; set; }
+
+    [Parameter]
+    public bool KeyDisabled { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<Vehiculo> OnValidatedForm { get; set; }
+
+    [Parameter]
+    public List<Fabricante> Fabricantes { get; set; } = new();
+
+    [Parameter]
+    public List<Modelo> Modelos { get; set; } = new();
+
+    [Parameter]
+    public List<Cliente> Clientes { get; set; } = new();
+
+    [Parameter]
+    public Vehiculo? VehiculoExistente { get; set; }
+
+    [Parameter]
+    public VehiculoViewModel VehiculoModel { get; set; } = new();
+
+    private List<Modelo> ModelosFiltrados = new();
+
+    private SearchCliente? SearchClienteFormRef;
+
+    public string? ClienteExistenteId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (VehiculoExistente != null)
+        {
+            VehiculoModel.Patente = VehiculoExistente!.Patente!.ToUpper().Trim();
+            VehiculoModel.Fabricante = VehiculoExistente!.FabricanteId;
+            ModelosFiltrados = Modelos.Where(m => m.FabricanteId == VehiculoExistente!.FabricanteId).ToList();
+            VehiculoModel.Modelo = VehiculoExistente!.ModeloId;
+            VehiculoModel.Version = VehiculoExistente.Version?.ToUpper().Trim() ?? string.Empty;
+            VehiculoModel.CapacidadMotor = VehiculoExistente.CapacidadMotor?.ToUpper().Trim() ?? string.Empty;
+            VehiculoModel.CapacidadCaja = VehiculoExistente.CapacidadCaja?.ToUpper().Trim() ?? string.Empty;
+            VehiculoModel.ClienteId = VehiculoExistente.ClienteId!;
+            ClienteExistenteId = VehiculoExistente.ClienteId!;
+        }
+        await base.OnParametersSetAsync();
+    }
+
+    private void OnClienteIdChanged(string? nuevoClienteId)
+    {
+        VehiculoModel.ClienteId = nuevoClienteId;
+        if (VehiculoExistente != null)
+        {
+            ClienteExistenteId = nuevoClienteId;
+        }
+    }
+
+    private void ActualizarModelos(ChangeEventArgs e)
+    {
+        var fabricanteSeleccionado = e.Value?.ToString(); 
+        if (!string.IsNullOrEmpty(fabricanteSeleccionado))
+        {
+            VehiculoModel.Fabricante = fabricanteSeleccionado;
+            VehiculoModel.Modelo = "";
+            ModelosFiltrados = Modelos.Where(m => m.FabricanteId == fabricanteSeleccionado).ToList();
+        }
+        else
+        {
+            ModelosFiltrados.Clear();
+        }
+    }
+
+    public async Task RegistrarVehiculo(EditContext editContext)
+    {
+        string patente = VehiculoModel.Patente.ToUpper();
+        string pattern = @"^[A-Z]{3}\d{3}$|^[A-Z]{2}\d{3}[A-Z]{2}$|^Z-.*$";
+        Regex regex = new Regex(pattern);
+
+        if (!regex.IsMatch(patente))
+        {
+            ToastService.Notify(new(ToastType.Danger, "La patente tiene un formato inválido"));
+            return;
+        }
+
+        if (SearchClienteFormRef != null && SearchClienteFormRef.TieneDatosSinGuardar())
+        {
+            ToastService.Notify(new(ToastType.Warning, "Debe agregar al cliente para que se guarden los cambios"));
+            return;
+        }
+
+
+        Vehiculo v = new Vehiculo
+        {
+            Patente = VehiculoModel.Patente.ToUpper().Trim(),
+            FabricanteId = VehiculoModel.Fabricante,
+            ModeloId = VehiculoModel.Modelo,
+            Version = VehiculoModel.Version.ToUpper().Trim(),
+            CapacidadMotor = string.IsNullOrWhiteSpace(VehiculoModel.CapacidadMotor) ? null : VehiculoModel.CapacidadMotor.ToUpper().Trim(),
+            CapacidadCaja = string.IsNullOrWhiteSpace(VehiculoModel.CapacidadCaja) ? null : VehiculoModel.CapacidadCaja.ToUpper().Trim(),
+            ClienteId = VehiculoModel.ClienteId ?? null
+        };
+
+        await OnValidatedForm.InvokeAsync(v);
+    }
+
+}

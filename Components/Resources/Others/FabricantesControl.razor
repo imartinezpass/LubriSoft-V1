@@ -1,0 +1,123 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+<h1 class="mb-0" style="text-align:center">Fabricantes</h1>
+<h4 class="mb-0" style="text-align:center">Alta y Baja</h4>
+<hr />
+<div class="row">
+    <div class="col-xl-9">
+        <FabricantesForm OnValidatedForm="HandleFabricanteAdded" FabricanteModel="FabricanteModel" FormId="FabricanteAdd" />
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="FabricanteAdd" class="w-100 btn btn-lg btn-dark">Cargar</button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-9">
+        <div class="form-floating mb-3">
+            <InputSelect @bind-Value="FabricanteSelected" class="form-control">
+                <option value="">Seleccione un fabricante...</option>
+                @foreach (var f in Fabricantes)
+                {
+                    <option value="@f.Nombre">@f.Nombre</option>
+                }
+            </InputSelect>
+            <label>Lista de Fabricantes</label>
+        </div>
+    </div>
+    <div class="col-xl-3 mb-3">
+        <div class="d-flex h-100">
+            <button form="FabricanteDelete" class="w-100 btn btn-lg btn-danger" @onclick="FabricanteDelete">Eliminar</button>
+        </div>
+    </div>
+</div>
+
+<Modal @ref="ModalFabricante" title="Eliminar Fabricante" CloseOnEscape="false">
+    <BodyTemplate>
+        ¿Está seguro de que desea eliminar el fabricante @FabricanteSelected?
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-danger" @onclick="ConfirmDeleteFabricante">Eliminar</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public List<Fabricante> Fabricantes { get; set; } = new();
+
+    [Parameter]
+    public EventCallback OnFabricanteChanged { get; set; }
+
+    public FabricanteViewModel FabricanteModel { get; set; } = new();
+
+    public String? FabricanteSelected;
+
+    private Modal ModalFabricante = default!;
+
+    //Dispara Modal de confirmacion
+    public async void FabricanteDelete()
+    {
+        await ModalFabricante.ShowAsync();
+    }
+
+    //Create Fabricante
+    private async void HandleFabricanteAdded(Entities.Fabricante newFabricante)
+    {
+        var result = await DbServices.CreateFabricante(newFabricante);
+
+        if (result == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: ya existe un fabricante cargado con ese nombre"));
+        }
+        else
+        {
+            Fabricantes.Add(newFabricante); //Actualiza la UI sin refrescar
+            Fabricantes = Fabricantes.OrderBy(x => x.Nombre).ToList(); //Ordena la UI sin refrescar
+            FabricanteModel = new();
+            ToastService.Notify(new(ToastType.Success, $"Se agregó un fabricante nuevo con nombre {newFabricante.Nombre}"));
+            await OnFabricanteChanged.InvokeAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    //Delete Fabricante
+    public async void ConfirmDeleteFabricante()
+    {
+        try
+        {
+            var result = await DbServices.DeleteFabricante(FabricanteSelected!);
+
+            if (result == true)
+            {
+                var fabricante = Fabricantes.FirstOrDefault(x => x.Nombre == FabricanteSelected);
+                if (fabricante != null)
+                {
+                    Fabricantes.Remove(fabricante);
+                }
+
+                ToastService.Notify(new(ToastType.Danger, $"Se eliminó el fabricante {FabricanteSelected}"));
+                FabricanteSelected = string.Empty;
+                await OnFabricanteChanged.InvokeAsync();
+            }
+            else
+            {
+                ToastService.Notify(new(ToastType.Danger, $"Error: el fabricante no existe o posee referencias"));
+            }
+        }
+        catch
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Se produjo un error al intentar eliminar el fabricante"));
+        }
+        await ModalFabricante.HideAsync();
+        StateHasChanged();
+    }
+
+}

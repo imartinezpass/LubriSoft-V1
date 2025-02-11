@@ -1,0 +1,65 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using System.Text.RegularExpressions
+
+<EditForm Model="@AceiteModel" OnValidSubmit="RegistrarAceite" id="@FormId">
+    <DataAnnotationsValidator />
+    <div class="row">
+        <div class="col-xl-5">
+            @****** MARCA ******@
+            <div class="form-floating mb-3">
+                <InputSelect @bind-Value="AceiteModel.Marca" class="form-control">
+                    <option value="">Seleccione una marca...</option>
+                    @foreach (var m in Marcas)
+                    {
+                        <option value="@m.Nombre">@m.Nombre</option>
+                    }
+                </InputSelect>
+                <label>Marca</label>
+            </div>
+        </div>
+        <div class="col-xl-5">
+            @****** NOMBRE ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="AceiteModel.Nombre" class="form-control" placeholder="" maxlength="50" style="text-transform:uppercase" />
+                <label>Nombre</label>
+            </div>
+        </div>
+        <div class="col-xl-2">
+            @****** NORMA ******@
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="AceiteModel.Norma" class="form-control" placeholder="" maxlength="50" style="text-transform:uppercase" />
+                <label>Norma</label>
+            </div>
+        </div>                           
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public string? FormId { get; set; }
+
+    [Parameter]
+    public EventCallback<Aceite> OnValidatedForm { get; set; }
+
+    [Parameter]
+    public List<Marca> Marcas { get; set; } = new();
+
+    [Parameter]
+    public AceiteViewModel AceiteModel { get; set; } = new();
+
+    public async Task RegistrarAceite(EditContext editContext)
+    {
+        Aceite a = new Aceite
+        { 
+            MarcaId = AceiteModel.Marca,
+            Nombre = AceiteModel.Nombre.ToUpper().Trim(),
+            Norma = AceiteModel.Norma.ToUpper().Trim(),  
+            NombreCompleto = string.Join(" ", AceiteModel.Marca, AceiteModel.Nombre, AceiteModel.Norma).ToUpper()
+        };
+
+        await OnValidatedForm.InvokeAsync(a);
+    }
+
+}

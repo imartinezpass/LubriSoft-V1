@@ -1,0 +1,150 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+<div class="row">
+    <div class="col-xl-10">
+        <fieldset disabled="@(ClienteSelected)">
+            <ClientesForm OnValidatedForm="HandleClienteAdded" ClienteModel="ClienteModel" FormId="ClientesAdd" />
+        </fieldset>  
+    </div>
+    <div class="col-xl-2 mb-3">
+        <div class="d-flex gap-2 h-100 align-items-stretch">
+            <button form="ClientesAdd" class="btn btn-lg btn-dark w-100"><IconPersonAdd/></button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-10">
+        <div class="form-floating mb-3">
+            <input type="text" @bind-value="NombreCliente" @oninput="OnNombreClienteChanged" class="form-control" placeholder="Nombre del cliente" maxlength="50" style="text-transform:uppercase" disabled="@ClienteSelected" />
+            <label>Seleccionar cliente (nombre o telefono)</label>
+        </div>
+    </div>
+    <div class="col-xl-2 mb-3">
+        <div class="d-flex gap-2 h-100 align-items-stretch">
+            <button type="button" form="ServiceAdd" class="btn btn-lg btn-danger w-100" @onclick="ResetBusqueda"><IconReset/></button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-12">
+        <ul class="list-group">
+            @if (ClientesBusqueda.Any())
+            {
+                @foreach (Cliente c in ClientesBusqueda)
+                {
+                    <li class="list-group-item" @onclick="()=>SelectCliente(c)">@c.Telefono - @c.Nombre</li>
+                }
+            }
+            else if (!ClienteSelected && !string.IsNullOrEmpty(NombreCliente))
+            {
+                <li class="list-group-item">No se encontraron clientes...</li>
+            }
+        </ul>
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public List<Cliente> Clientes { get; set; } = new();
+
+    [Parameter]
+    public string? IdClienteExistente { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> ClienteIdChanged { get; set; }
+
+    public ClienteViewModel ClienteModel { get; set; } = new();
+
+    public List<Cliente> ClientesBusqueda { get; set; } = new();
+
+    public string? IdCliente = null;
+    public string? NombreCliente;
+    public bool ClienteSelected = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(IdClienteExistente))
+        {
+            Cliente? c = Clientes.Where(c => c.Telefono == IdClienteExistente).FirstOrDefault();
+            NombreCliente = $"{c!.Telefono} - {c!.Nombre}";
+            ClienteSelected = true;
+        }
+        await base.OnParametersSetAsync();
+    }
+
+    public bool TieneDatosSinGuardar()
+    {
+        return (!string.IsNullOrWhiteSpace(ClienteModel.Nombre) && !string.IsNullOrWhiteSpace(ClienteModel.Telefono));
+    }
+
+    //Selecciona un cliente de la lista
+    private async void SelectCliente(Cliente c)
+    {
+        NombreCliente = $"{c!.Telefono} - {c!.Nombre}";
+        IdCliente = c.Telefono;
+        ClienteSelected = true;   
+        ClientesBusqueda.Clear();
+        ClienteModel = new();
+        await ClienteIdChanged.InvokeAsync(IdCliente);
+    }
+
+    //Reinicia la seleccion de cliente
+    private async void ResetBusqueda()
+    {
+        NombreCliente = string.Empty;
+        IdCliente = null;
+        ClienteSelected = false;
+        ClientesBusqueda.Clear();
+        await ClienteIdChanged.InvokeAsync(IdCliente);
+    }
+
+    //Realiza la busqueda al escribir
+    private void OnNombreClienteChanged(ChangeEventArgs e)
+    {
+        NombreCliente = e.Value?.ToString()?.ToUpper();
+        if (string.IsNullOrWhiteSpace(NombreCliente))
+        {
+            ClientesBusqueda.Clear();
+        }
+        else if (NombreCliente!.Any(char.IsDigit))
+        {
+            ClientesBusqueda = Clientes.Where(c => c.Telefono.Contains(NombreCliente)).ToList();
+        }
+        else
+        {
+            ClientesBusqueda = Clientes.Where(c => c.Nombre.Contains(NombreCliente)).ToList();
+        }
+        StateHasChanged();
+    }
+
+    //Create Cliente
+    private async void HandleClienteAdded(Entities.Cliente newCliente)
+    {
+        var result = await DbServices.CreateCliente(newCliente);
+
+        if (result == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: ya existe un cliente cargado con ese numero de telefono"));
+        }
+        else
+        {
+            Clientes.Add(newCliente); //Actualiza la UI sin refrescar
+            Clientes = Clientes.OrderBy(x => x.Nombre).ToList(); //Ordena la UI sin refrescar
+
+            ClienteModel = new();
+
+            SelectCliente(newCliente);
+
+            ToastService.Notify(new(ToastType.Success, $"Se agregó un cliente nuevo"));
+        }
+
+        StateHasChanged();
+    }
+
+}

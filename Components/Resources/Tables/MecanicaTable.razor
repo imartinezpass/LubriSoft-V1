@@ -1,0 +1,212 @@
+﻿@using LubriSoft.Data
+@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject IJSRuntime JS
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+@inject LubriSoftDataContext Context
+
+@if (MecanicaServices.Count == 0)
+{
+    <div class="alert alert-warning mb-0" role="alert">
+        No hay trabajos de mecanica para mostrar...
+    </div>
+}
+else
+{
+<div class="table-responsive">
+    <table class="table table-bordered table-striped caption-top mb-0">
+        <caption>Tabla de Mecanica</caption>
+        <thead>
+            <tr style="text-align:center">
+                <th>Fecha</th>
+                <th>Patente</th>
+                <th>Vehiculo</th>
+                <th>KM Actual</th>
+                <th>Tipo Trabajo</th>
+                <th>Detalle</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var mecanica in MecanicaServices)
+            {
+                Context.Entry(mecanica).Reference(x => x.Vehiculo).Load();
+                <tr class="table-secondary" style="text-align:center">
+                <td>@mecanica.Fecha.ToShortDateString()</td>
+                <td>@mecanica.Patente</td>
+                <td>@mecanica.Vehiculo!.FabricanteId @mecanica.Vehiculo!.ModeloId @mecanica.Vehiculo!.Version</td>
+                <td>@mecanica.KilometrajeActual.ToString("N0")</td>
+                <td>@mecanica.TipoTrabajo</td>
+                <td>@mecanica.Detalle</td>
+                <td>
+                    <div class="container" style="white-space:nowrap">
+                        <button class="btn btn-secondary" @onclick="@(() => MecanicaPrint(mecanica))"><IconPrint /></button>
+                        <button class="btn btn-dark" @onclick="@(() => MecanicaEdit(mecanica))"><IconEdit /></button>
+                        <button class="btn btn-danger" @onclick="@(() => MecanicaDelete(mecanica))"><IconDelete /></button>
+                    </div>
+                </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+}
+
+<Modal @ref="ModalPrint" title="Imprimir Mecanica" CloseOnEscape="false">
+    <BodyTemplate>
+        <iframe id="printIframeMecanica" style="display:none"></iframe>
+        <div id="contentToPrintMecanica">
+            <div style="word-wrap:break-word; overflow-wrap:break-word">
+                <div style="display: flex; justify-content: center; align-items: center">
+                    <img src="logo.png" style="max-width:100px" />
+                </div>
+                <p><b>Fecha:</b> @MecanicaContext!.Fecha.ToShortDateString()</p>
+                <p><b>Patente:</b> @MecanicaContext.Patente</p>
+                <p><b>Fabricante:</b> @MecanicaContext.Vehiculo!.FabricanteId</p>
+                <p><b>Modelo:</b> @MecanicaContext.Vehiculo!.ModeloId @MecanicaContext.Vehiculo!.Version</p>
+                <p><b>Kilometraje:</b> @MecanicaContext.KilometrajeActual.ToString("N0")</p>
+                <p><b>Detalle:</b> @MecanicaContext.Detalle</p>
+            </div>
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-secondary" @onclick="ConfirmPrint">Imprimir</button>
+    </FooterTemplate>
+</Modal>
+
+<Modal @ref="ModalEdit" title="Editar Mecanica" CloseOnEscape="false" Size="ModalSize.ExtraLarge" OnHiding="ResetModel">
+    <BodyTemplate>
+        <div class="row">
+            <h3>Datos de Mecanica</h3>
+            <MecanicaForm OnValidatedForm="ConfirmEdit" FormId="MecanicaEdit" ModeloExistente="MecanicaContext" />
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-dark" form="MecanicaEdit">Guardar</button>
+    </FooterTemplate>
+</Modal>
+
+<Modal @ref="ModalDelete" title="Eliminar Mecanica" CloseOnEscape="false">
+    <BodyTemplate>
+        ¿Está seguro de que desea eliminar el service de mecanica #@MecanicaContext!.Id?
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-danger" @onclick="ConfirmDelete">Eliminar</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public List<Mecanica> MecanicaServices { get; set; } = new();
+
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private Mecanica? MecanicaContext;
+
+    private Modal ModalPrint = default!;
+    private Modal ModalEdit = default!;
+    private Modal ModalDelete = default!;
+
+    //Reinicia el form
+    public async void ResetModel()
+    {
+        await ModalEdit.HideAsync();
+    }
+
+    //Dispara Modal de impresion
+    public async void MecanicaPrint(Mecanica mecanica)
+    {
+        MecanicaContext = mecanica;
+        await ModalPrint.ShowAsync();
+    }
+
+    //Dispara Modal de edicion
+    public async void MecanicaEdit(Mecanica mecanica)
+    {
+        MecanicaContext = mecanica;
+        await ModalEdit.ShowAsync();
+    }
+
+    //Dispara Modal de confirmacion
+    public async void MecanicaDelete(Mecanica mecanica)
+    {
+        MecanicaContext = mecanica;
+        await ModalDelete.ShowAsync();
+    }
+
+    //Print Mecanica
+    private async void ConfirmPrint()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("printIframeContent", "printIframeMecanica");
+        }
+        catch
+        {
+            Console.WriteLine("Print error");
+        }
+    }
+
+    //Update Mecanica
+    private async Task ConfirmEdit(Entities.Mecanica editedMecanica)
+    {
+        Mecanica m = new Mecanica
+        {
+            Id = MecanicaContext!.Id,
+            Fecha = editedMecanica.Fecha,
+            Patente = editedMecanica.Patente!.ToUpper(),
+            KilometrajeActual = editedMecanica.KilometrajeActual,
+            TipoTrabajo = editedMecanica.TipoTrabajo,
+            Detalle = editedMecanica.Detalle!.ToUpper().Trim()
+        };
+
+        var result = await DbServices.UpdateMecanica(m);
+
+        if (result == true)
+        {
+            ToastService.Notify(new(ToastType.Success, $"Se modificó el trabajo de mecanica con id #{MecanicaContext.Id}"));
+        }
+        else
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: el trabajo de mecanica no existe"));
+        }
+
+        await ModalEdit.HideAsync();
+    }
+
+    //Delete Mecanica
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            var result = await DbServices.DeleteMecanica(MecanicaContext!.Id);
+
+            if (result == true)
+            {
+                var mecanica = MecanicaServices.FirstOrDefault(x => x.Id == MecanicaContext.Id);
+                if (mecanica != null)
+                {
+                    MecanicaServices.Remove(mecanica);
+                    await OnDelete.InvokeAsync(); // Llama a la actualización de vehículos
+                }
+
+                ToastService.Notify(new(ToastType.Danger, $"Se eliminó el trabajo de mecanica con id #{MecanicaContext.Id}"));
+            }
+            else
+            {
+                ToastService.Notify(new(ToastType.Danger, $"Error: el trabajo de mecanica no existe"));
+            }
+        }
+        catch
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Se produjo un error al intentar eliminar el trabajo de mecanica"));
+        }
+        await ModalDelete.HideAsync();
+        StateHasChanged();
+    }
+
+}

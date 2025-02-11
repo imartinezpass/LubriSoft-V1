@@ -1,0 +1,141 @@
+﻿@page "/service"
+
+@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+
+@rendermode InteractiveServer
+
+<PageTitle>Service</PageTitle>
+
+<div class="row mb-3">
+    <div class="col-lg-12 mx-auto pt-2 pb-3 border">
+        <h1 class="mb-0" style="text-align:center">Service</h1>
+        <h4 class="mb-0" style="text-align:center">Alta y Gestion</h4>
+        <hr />
+        <VerificadorPatente VerificarPatente="VerificarPatente" OnVehiculoAdded="HandleVehiculoAdded" Fabricantes="Fabricantes" Modelos="Modelos" Clientes="Clientes" PatenteModel="PatenteModel" Searching="Searching" />
+        <div class="row">
+            <div class="col-12">
+                <VehiculosTable Vehiculos="Vehiculos" Fabricantes="Fabricantes" Modelos="Modelos" Clientes="Clientes" />              
+            </div>
+        </div>
+        <hr />
+        <fieldset disabled="@(!IsPatenteVerificada)">
+            <ServiceForm OnValidatedForm="HandleServiceAdded" ServiceModel="ServiceModel" Aceites="Aceites" FormId="ServiceAdd" PatenteForm="@PatenteVerificada" />
+            <button form="ServiceAdd" class="w-100 btn btn-lg btn-dark">Cargar Service</button>
+        </fieldset>
+        <hr />
+        <ServiceTable OilServices="ServiciosAceite" Aceites="Aceites" />
+    </div>
+</div>
+
+<Toasts class="p-3" AutoHide="true" Delay="5000" Placement="ToastsPlacement.TopRight" />
+
+@code{
+
+    public bool IsPatenteVerificada = false;
+    public bool Searching = false;
+    public string PatenteVerificada = string.Empty;
+
+    public List<Fabricante> Fabricantes { get; set; } = new();
+    public List<Modelo> Modelos { get; set; } = new();
+    public List<Aceite> Aceites { get; set; } = new();
+    public List<Service> ServiciosAceite { get; set; } = new();
+    public List<Cliente> Clientes { get; set; } = new();
+    public List<Vehiculo> Vehiculos { get; set; } = new();
+
+    private Vehiculo? Vehiculo;
+    public ServiceViewModel ServiceModel { get; set; } = new();
+    public PatenteViewModel PatenteModel { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Aceites = await DbServices.ReadAllAceites();
+            Fabricantes = await DbServices.ReadAllFabricantes();
+            Modelos = await DbServices.ReadAllModelos();
+            Clientes = await DbServices.ReadAllClientes();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
+
+    //Search Vehiculo after Create Vehiculo
+    private void HandleVehiculoAdded(string patente)
+    {
+        PatenteModel.Patente = patente;
+        VerificarPatente();
+    }
+
+    //Search Vehiculo
+    private async void VerificarPatente()
+    {
+        ServiceModel = new();
+        Searching = true;
+        StateHasChanged();
+
+        await Task.Delay(500);
+
+        var NormalizedSearchField = PatenteModel.Patente.Trim();
+
+        if (NormalizedSearchField.Length < 6 || NormalizedSearchField.Contains(" "))
+        {
+            Vehiculo = null;
+            Vehiculos.Clear();
+            ServiciosAceite.Clear();
+        }
+        else
+        {
+            Vehiculo = await DbServices.ReadVehiculoByPatente(PatenteModel.Patente);
+            Vehiculos.Clear();
+            ServiciosAceite = await DbServices.SearchService(2, PatenteModel.Patente);
+        }
+
+        IsPatenteVerificada = (Vehiculo != null);
+
+        if(IsPatenteVerificada){
+            PatenteVerificada = PatenteModel.Patente;
+            Vehiculos.Add(Vehiculo!);
+        }
+        else
+        {
+            PatenteVerificada = string.Empty;
+        }
+
+        Searching = false;
+        StateHasChanged();
+    }
+
+    //Create Service
+    private async void HandleServiceAdded(Entities.Service newService)
+    {
+        var serviceId = await DbServices.CreateService(newService);
+
+        if(serviceId == 0)
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: no se encontró un vehiculo con la patente indicada"));
+        }
+        else
+        {
+            ServiciosAceite.Add(newService); //Actualiza la UI sin refrescar
+            ServiciosAceite = ServiciosAceite.OrderByDescending(x => x.Fecha).ToList(); //Ordena la UI sin refrescar
+
+            ServiceModel = new();
+            Vehiculo = null;
+            PatenteVerificada = string.Empty;
+            IsPatenteVerificada = false;
+            PatenteModel.Patente = string.Empty;
+
+            ToastService.Notify(new(ToastType.Success, $"Se agregó un servicio de aceite nuevo con id #{serviceId}"));
+        }
+  
+        StateHasChanged();
+    }
+
+}

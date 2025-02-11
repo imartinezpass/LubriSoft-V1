@@ -1,0 +1,263 @@
+﻿@using LubriSoft.Data
+@using LubriSoft.Entities
+@using LubriSoft.Models
+@using LubriSoft.Services
+
+@inject IJSRuntime JS
+@inject ILubriSoftServices DbServices
+@inject ToastService ToastService
+@inject LubriSoftDataContext Context
+
+@if (OilServices.Count == 0)
+{
+    <div class="alert alert-warning mb-0" role="alert">
+        No hay servicios de aceite para mostrar...
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped caption-top mb-0">
+            <caption>Tabla de Service</caption>
+            <thead>
+                <tr style="text-align:center">
+                    <th>Fecha</th>
+                    <th>Patente</th>
+                    <th>Vehiculo</th>
+                    <th>KM Actual</th>
+                    <th>KM Proximo</th>
+                    <th>Aceite</th>
+                    <th>Filtro Aire</th>
+                    <th>Filtro Aceite</th>
+                    <th>Filtro Combustible</th>
+                    <th>Filtro Habitaculo</th>
+                    <th>Observaciones</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var service in OilServices)
+                {
+                    Context.Entry(service).Reference(x => x.Vehiculo).Load();
+                    <tr class="table-secondary" style="text-align:center">
+                        <td>@service.Fecha.ToShortDateString()</td>
+                        <td>@service.Patente</td>
+                        <td>@service.Vehiculo!.FabricanteId @service.Vehiculo!.ModeloId @service.Vehiculo!.Version</td>
+                        <td>@service.KilometrajeActual.ToString("N0")</td>
+                        <td>@service.KilometrajeProximo.ToString("N0")</td>
+                        <td>@service.AceiteId</td>
+                        <td>@service.FiltroAire</td>
+                        <td>@service.FiltroAceite</td>
+                        <td>@service.FiltroCombustible</td>
+                        <td>@service.FiltroHabitaculo</td>
+                        <td>@service.Observaciones</td>
+                        <td>
+                            <div class="container" style="white-space:nowrap">
+                                <button class="btn btn-secondary" @onclick="@(() => ServicePrint(service))"><IconPrint /></button>
+                                <button class="btn btn-dark" @onclick="@(() => ServiceEdit(service))"><IconEdit /></button>
+                                <button class="btn btn-danger" @onclick="@(() => ServiceDelete(service))"><IconDelete /></button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<Modal @ref="ModalPrint" title="Imprimir Service" CloseOnEscape="false">
+    <BodyTemplate>      
+        <iframe id="printIframeService" style="display:none"></iframe>
+        <div id="contentToPrintService">
+            <div style="word-wrap:break-word; overflow-wrap:break-word">
+                <div style="display: flex; justify-content: center; align-items: center">
+                    <img src="logo.png" style="max-width:100px" />
+                </div>               
+                <p><b>Fecha:</b> @ServiceContext!.Fecha.ToShortDateString()</p>
+                <p><b>Patente:</b> @ServiceContext.Patente</p>
+                <p><b>Fabricante:</b> @ServiceContext.Vehiculo!.FabricanteId</p>
+                <p><b>Modelo:</b> @ServiceContext.Vehiculo.ModeloId @ServiceContext.Vehiculo!.Version</p>
+                <p><b>KM Actual:</b> @ServiceContext.KilometrajeActual.ToString("N0")</p>
+                <p><b>KM Proximo:</b> @ServiceContext.KilometrajeProximo.ToString("N0")</p>
+                <p><b>Aceite:</b> @ServiceContext.AceiteId</p>
+                <p><b>Filtros:</b> @GetFiltros()</p>
+                <p><b>Observaciones:</b> @ServiceContext.Observaciones</p>
+            </div>
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-secondary" @onclick="ConfirmPrint">Imprimir</button>
+    </FooterTemplate>
+</Modal>
+
+<Modal @ref="ModalEdit" title="Editar Service" CloseOnEscape="false" Size="ModalSize.ExtraLarge" OnHiding="ResetModel">
+    <BodyTemplate>
+        <div class="row">
+            <h3>Datos del Service</h3>
+            <ServiceForm OnValidatedForm="ConfirmEdit" Aceites="Aceites" FormId="ServiceEdit" ModeloExistente="ServiceContext" />
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-dark" form="ServiceEdit">Guardar</button>
+    </FooterTemplate>
+</Modal>
+
+<Modal @ref="ModalDelete" title="Eliminar Service" CloseOnEscape="false">
+    <BodyTemplate>
+        ¿Está seguro de que desea eliminar el service de aceite #@ServiceContext!.Id?
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-lg btn-danger" @onclick="ConfirmDelete">Eliminar</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter]
+    public List<Aceite> Aceites { get; set; } = new();
+
+    [Parameter]
+    public List<Service> OilServices { get; set; } = new();
+
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private Service? ServiceContext;
+
+    private Modal ModalPrint = default!;
+    private Modal ModalEdit = default!;
+    private Modal ModalDelete = default!;
+
+    //Reinicia el form
+    public async void ResetModel()
+    {
+        await ModalEdit.HideAsync();
+    }
+
+    //Dispara Modal de impresion
+    public async void ServicePrint(Service service)
+    {
+        ServiceContext = service;
+        await ModalPrint.ShowAsync();
+    }
+
+    //Dispara Modal de edicion
+    public async void ServiceEdit(Service service)
+    {
+        ServiceContext = service;
+        await ModalEdit.ShowAsync();
+    }
+
+    //Dispara Modal de confirmacion
+    public async void ServiceDelete(Service service)
+    {
+        ServiceContext = service;
+        await ModalDelete.ShowAsync();
+    }
+
+    //Print Service
+    private async void ConfirmPrint()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("printIframeContent", "printIframeService");
+        }
+        catch
+        {
+            Console.WriteLine("Print error");
+        }
+    }
+
+    //Update Service
+    private async Task ConfirmEdit(Entities.Service editedService)
+    {
+        Service s = new Service
+        {
+            Id = ServiceContext!.Id,
+            Fecha = editedService.Fecha,
+            Patente = editedService.Patente!.ToUpper(),
+            KilometrajeActual = editedService.KilometrajeActual,
+            KilometrajeProximo = editedService.KilometrajeProximo,
+            AceiteId = editedService.AceiteId,
+            FiltroAire = editedService.FiltroAire!.ToUpper().Trim(),
+            FiltroAceite = editedService.FiltroAceite!.ToUpper().Trim(),
+            FiltroCombustible = editedService.FiltroCombustible!.ToUpper().Trim(),
+            FiltroHabitaculo = editedService.FiltroHabitaculo!.ToUpper().Trim(),
+            Observaciones = editedService.Observaciones!.ToUpper().Trim()
+        };
+
+        var result = await DbServices.UpdateService(s);
+
+        if (result == true)
+        {
+            ToastService.Notify(new(ToastType.Success, $"Se modificó el servicio de aceite con id #{ServiceContext.Id}"));
+        }
+        else
+        {
+            ToastService.Notify(new(ToastType.Danger, $"Error: el servicio de aceite no existe"));
+        }
+
+        await ModalEdit.HideAsync();  
+    }
+
+    //Delete Service
+    private async Task ConfirmDelete()
+    {
+       try
+       {
+            var result = await DbServices.DeleteService(ServiceContext!.Id);
+
+            if(result == true)
+            {
+                var service = OilServices.FirstOrDefault(x => x.Id == ServiceContext.Id);
+                if (service != null)
+                {
+                    OilServices.Remove(service);
+                    await OnDelete.InvokeAsync(); // Llama a la actualización de vehículos
+                }
+
+                ToastService.Notify(new(ToastType.Danger, $"Se eliminó el servicio de aceite con id #{ServiceContext.Id}"));
+            }
+            else
+            {
+                ToastService.Notify(new(ToastType.Danger, $"Error: el servicio de aceite no existe"));
+            }
+       }
+       catch
+       {
+            ToastService.Notify(new(ToastType.Danger, $"Se produjo un error al intentar eliminar el servicio de aceite"));
+       }
+       await ModalDelete.HideAsync();
+       StateHasChanged();
+    }
+
+    //Obtiene los filtros utilizados
+    public string GetFiltros()
+    {
+        var filtros = new List<string>();
+
+        if (!ServiceContext!.FiltroAire!.Contains("NO"))
+        {
+            filtros.Add("AIRE");
+        }
+        if (!ServiceContext!.FiltroAceite!.Contains("NO"))
+        {
+            filtros.Add("ACEITE");
+        }
+        if (!ServiceContext!.FiltroCombustible!.Contains("NO"))
+        {
+            filtros.Add("COMBUSTIBLE");
+        }
+        if (!ServiceContext!.FiltroHabitaculo!.Contains("NO"))
+        {
+            filtros.Add("HABITACULO");
+        }
+
+        if (filtros.Count == 0)
+        {
+            filtros.Add("NO");
+        }
+
+        return string.Join(" + ", filtros);
+    }
+
+}

@@ -1,0 +1,109 @@
+﻿@page "/"
+
+@using LubriSoft.Data
+@using LubriSoft.Entities
+@using LubriSoft.Services
+
+@inject ILubriSoftServices DbServices
+@inject LubriSoftDataContext Context
+
+@rendermode InteractiveServer
+
+<PageTitle>LubriSoft</PageTitle>
+
+<div class="row">
+    <div class="col-lg-12 mx-auto pt-2 pb-3 border" style="margin-bottom:1.1rem">
+        <h1 class="mb-0" style="text-align:center">Mundo Oil</h1>
+        <h4 class="mb-0" style="text-align:center">Powered by LubriSoft</h4>
+        <hr />
+        @if (loading || isPrerendering) 
+        {
+            <div class="d-flex justify-content-center">
+                <Spinner Type="SpinnerType.Border" />
+            </div>
+        }
+        else
+        {
+            <div class="mb-3">
+                <VehiculosTable Vehiculos="Vehiculos" Fabricantes="Fabricantes" Modelos="Modelos" Clientes="Clientes" />
+            </div>
+            <div class="mb-3">
+                <ServiceTable OilServices="ServiciosAceite" Aceites="Aceites" OnDelete="UpdateVehiculos" />
+            </div>
+            <div>
+                <MecanicaTable MecanicaServices="ServiciosMecanica" OnDelete="UpdateVehiculos" />
+            </div>
+        }   
+    </div>
+</div>
+
+<Toasts class="p-3" AutoHide="true" Delay="5000" Placement="ToastsPlacement.TopRight" />
+
+@code {
+
+    public List<Aceite> Aceites { get; set; } = new();
+    public List<Service> ServiciosAceite { get; set; } = new();
+    public List<Mecanica> ServiciosMecanica { get; set; } = new ();
+    public List<Fabricante> Fabricantes { get; set; } = new();
+    public List<Modelo> Modelos { get; set; } = new();
+    public List<Cliente> Clientes { get; set; } = new();
+    public List<Vehiculo> Vehiculos { get; set; } = new();
+
+    public bool loading = true;
+    private bool isPrerendering = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isPrerendering = false;
+            StateHasChanged();
+        }
+        await Task.Delay(100);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Aceites = await DbServices.ReadAllAceites();
+            ServiciosAceite = await DbServices.ReadServiceByDate(DateTime.Today);
+            ServiciosMecanica = await DbServices.ReadMecanicaByDate(DateTime.Today);
+            GetVehiculos();
+            Fabricantes = await DbServices.ReadAllFabricantes();
+            Modelos = await DbServices.ReadAllModelos();
+            Clientes = await DbServices.ReadAllClientes();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+        await Task.Delay(400);
+        loading = false;
+    }
+
+    public void UpdateVehiculos()
+    {
+        GetVehiculos();
+        StateHasChanged();
+    }
+
+    private void GetVehiculos()
+    {
+        HashSet<Vehiculo> vehiculosUnicos = new HashSet<Vehiculo>();
+
+        foreach (Service s in ServiciosAceite)
+        {
+            Context.Entry(s).Reference(x => x.Vehiculo).Load();
+            vehiculosUnicos.Add(s.Vehiculo!);
+        }
+        foreach (Mecanica m in ServiciosMecanica)
+        {
+            Context.Entry(m).Reference(x => x.Vehiculo).Load();
+            vehiculosUnicos.Add(m.Vehiculo!);
+        }
+
+        Vehiculos = vehiculosUnicos.ToList();
+    }
+
+}

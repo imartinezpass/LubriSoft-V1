@@ -1,0 +1,71 @@
+﻿@using LubriSoft.Entities
+@using LubriSoft.Models
+@using System.Text.RegularExpressions
+
+<EditForm Model="@ServiceModel" OnValidSubmit="RegistrarService" id="@FormId">
+    <DataAnnotationsValidator />
+    <div class="row">
+        <ServiceFormControls ServiceModel="ServiceModel" Aceites="Aceites" PatenteVerificada="@PatenteForm" />
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public string? FormId { get; set; }
+
+    [Parameter]
+    public EventCallback<Service> OnValidatedForm { get; set; }
+
+    [Parameter]
+    public Service? ModeloExistente { get; set; }
+
+    [Parameter]
+    public List<Aceite> Aceites { get; set; } = new();
+
+    [Parameter]
+    public string PatenteForm { get; set; } = string.Empty;
+
+    [Parameter]
+    public ServiceViewModel ServiceModel { get; set; } = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ModeloExistente != null)
+        {
+            ServiceModel.Fecha = ModeloExistente.Fecha!;
+            PatenteForm = ModeloExistente.Patente!;
+            ServiceModel.KilometrajeActual = ModeloExistente.KilometrajeActual;
+            ServiceModel.Intervalo = ModeloExistente.KilometrajeProximo - ModeloExistente.KilometrajeActual;
+            ServiceModel.Aceite = ModeloExistente.AceiteId!;
+            ServiceModel.FiltroAire = ModeloExistente.FiltroAire!;
+            ServiceModel.FiltroAceite = ModeloExistente.FiltroAceite!;
+            ServiceModel.FiltroCombustible = ModeloExistente.FiltroCombustible!;
+            ServiceModel.FiltroHabitaculo = ModeloExistente.FiltroHabitaculo!;
+            ServiceModel.Observaciones = ModeloExistente.Observaciones!;
+        }
+        await base.OnParametersSetAsync();
+    }
+
+    public async Task RegistrarService(EditContext editContext)
+    {
+        DateTime horaActual = DateTime.Now;
+
+        Service s = new Service
+        {
+            Fecha = new DateTime(ServiceModel.Fecha.Year, ServiceModel.Fecha.Month, ServiceModel.Fecha.Day, horaActual.Hour, horaActual.Minute, horaActual.Second),
+            Patente = PatenteForm.ToUpper(),
+            KilometrajeActual = ServiceModel.KilometrajeActual,
+            KilometrajeProximo = ServiceModel.KilometrajeActual + ServiceModel.Intervalo,
+            AceiteId = ServiceModel.Aceite,
+            FiltroAire = ServiceModel.FiltroAire.ToUpper().Trim(),
+            FiltroAceite = ServiceModel.FiltroAceite.ToUpper().Trim(),
+            FiltroCombustible = ServiceModel.FiltroCombustible.ToUpper().Trim(),
+            FiltroHabitaculo = ServiceModel.FiltroHabitaculo.ToUpper().Trim(),
+            Observaciones = ServiceModel.Observaciones.ToUpper().Trim()
+        };
+
+        await OnValidatedForm.InvokeAsync(s);
+    }
+
+}
